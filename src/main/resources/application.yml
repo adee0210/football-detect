@@ -32,6 +32,10 @@ spring:
     redis:
       host: localhost
       port: 6379
+  servlet:
+    multipart:
+      max-file-size: 500MB
+      max-request-size: 500MB
 
 server:
   port: 8080
@@ -50,6 +54,15 @@ app:
       max-size: 100MB
     processing:
       url: http://localhost:9090/api/process
+
+# Cloudflare R2 Configuration
+cloudflare:
+  r2:
+    access-key: ${R2_ACCESS_KEY}
+    secret-key: ${R2_SECRET_KEY}
+    endpoint: ${R2_ENDPOINT}
+    region: ${R2_REGION:auto}
+    bucket-name: ${R2_BUCKET_NAME:football-videos}
 
 management:
   endpoints:

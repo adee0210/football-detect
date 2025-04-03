@@ -39,7 +39,7 @@ public class UserServiceImpl implements UserService {
     @Transactional(readOnly = true)
     public UserDTO getUserById(UUID id) {
         User user = userRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "id", id));
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", id.toString()));
         return mapToDTO(user);
     }
 
@@ -70,7 +70,7 @@ public class UserServiceImpl implements UserService {
     @Transactional
     public UserDTO updateUser(UUID id, User userDetails) {
         User user = userRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "id", id));
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", id.toString()));
 
         user.setName(userDetails.getName());
         user.setEmail(userDetails.getEmail());
@@ -86,7 +86,7 @@ public class UserServiceImpl implements UserService {
     @Transactional
     public UserDTO updateUser(UUID id, UserUpdateDTO userUpdateDTO) {
         User user = userRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "id", id));
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", id.toString()));
 
         // Chỉ cập nhật các trường được phép
         user.setName(userUpdateDTO.getName());
@@ -105,7 +105,7 @@ public class UserServiceImpl implements UserService {
     @Transactional
     public void deleteUser(UUID id) {
         User user = userRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "id", id));
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", id.toString()));
         userRepository.delete(user);
     }
 

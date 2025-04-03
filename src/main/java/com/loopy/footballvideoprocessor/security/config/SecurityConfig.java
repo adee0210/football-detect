@@ -60,6 +60,7 @@ public class SecurityConfig {
                         .requestMatchers("/auth/**").permitAll()
                         .requestMatchers("/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         .requestMatchers("/actuator/**").permitAll()
+                        .requestMatchers("/api/videos/test/**").permitAll()
                         .anyRequest().authenticated());
 
         // Thêm filter JWT trước filter xác thực username/password

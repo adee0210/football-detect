@@ -13,7 +13,7 @@ public class TokenResponse {
     private String tokenType;
     private Long expiresIn;
     private UserDTO user;
-    
+
     public TokenResponse(String accessToken, String refreshToken, Long expiresIn, UserDTO user) {
         this.accessToken = accessToken;
         this.refreshToken = refreshToken;

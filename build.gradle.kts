@@ -49,6 +49,9 @@ dependencies {
 	// S3 Client cho MinIO
 	implementation("io.minio:minio:8.5.7")
 	
+	// AWS SDK S3 cho Cloudflare R2
+	implementation("software.amazon.awssdk:s3:2.20.26")
+	
 	// Database
 	runtimeOnly("org.postgresql:postgresql")
 	implementation("org.flywaydb:flyway-core")
