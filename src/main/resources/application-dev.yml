@@ -1,0 +1,39 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/football_video_db
+    username: ${DB_USERNAME:user}
+    password: ${DB_PASSWORD:password}
+  jpa:
+    show-sql: true
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+logging:
+  level:
+    "[com.loopy.footballvideoprocessor]": INFO
+    "[org.springframework.web]": WARN
+    "[org.springframework.security]": WARN
+
+app:
+  auth:
+    jwt:
+      # Chỉ sử dụng secret này trong môi trường DEV, không dùng cho PROD
+      secret: ${JWT_SECRET:dev-only-secret-key-not-for-production-use}
+      expiration: 86400000 # 24 giờ
+      refresh-expiration: 604800000 # 7 ngày
+  video:
+    upload:
+      location: ${VIDEO_UPLOAD_PATH:uploads/videos}
+    processing:
+      url: ${VIDEO_PROCESSING_SERVICE_URL:http://localhost:9090/api/process}

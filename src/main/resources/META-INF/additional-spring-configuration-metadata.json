@@ -1,0 +1,60 @@
+{
+  "properties": [
+    {
+      "name": "app.auth.jwt.secret",
+      "type": "java.lang.String",
+      "description": "Secret key used for signing JWT tokens."
+    },
+    {
+      "name": "app.auth.jwt.expiration",
+      "type": "java.lang.Long",
+      "description": "JWT token expiration time in milliseconds."
+    },
+    {
+      "name": "app.auth.jwt.refresh-expiration",
+      "type": "java.lang.Long",
+      "description": "JWT refresh token expiration time in milliseconds."
+    },
+    {
+      "name": "app.video.upload.location",
+      "type": "java.lang.String",
+      "description": "Location where uploaded videos will be stored."
+    },
+    {
+      "name": "app.video.upload.max-size",
+      "type": "java.lang.String",
+      "description": "Maximum allowed size for video uploads."
+    },
+    {
+      "name": "app.video.processing.url",
+      "type": "java.lang.String",
+      "description": "URL for the video processing service."
+    },
+    {
+      "name": "rabbitmq.exchange.video-processing",
+      "type": "java.lang.String",
+      "description": "RabbitMQ exchange name for video processing."
+    },
+    {
+      "name": "rabbitmq.queue.video-processing",
+      "type": "java.lang.String",
+      "description": "RabbitMQ queue name for video processing."
+    },
+    {
+      "name": "rabbitmq.queue.video-result",
+      "type": "java.lang.String",
+      "description": "RabbitMQ queue name for video processing results."
+    },
+    {
+      "name": "rabbitmq.routing-key.video-processing",
+      "type": "java.lang.String",
+      "description": "RabbitMQ routing key for video processing."
+    },
+    {
+      "name": "rabbitmq.routing-key.video-result",
+      "type": "java.lang.String",
+      "description": "RabbitMQ routing key for video processing results."
+    }
+  ],
+  "hints": []
+}
