@@ -52,6 +52,9 @@ dependencies {
 	// AWS SDK S3 cho Cloudflare R2
 	implementation("software.amazon.awssdk:s3:2.20.26")
 	
+	// Hibernate Types for PostgreSQL JSONB support
+	implementation("com.vladmihalcea:hibernate-types-60:2.21.1")
+	
 	// Database
 	runtimeOnly("org.postgresql:postgresql")
 	implementation("org.flywaydb:flyway-core")

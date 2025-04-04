@@ -39,15 +39,20 @@ public class VideoMapper {
         dto.setIsDownloadable(video.getIsDownloadable());
         dto.setStatus(video.getStatus());
         
-        // Lấy tiến độ xử lý từ trạng thái xử lý mới nhất
-        if (video.getProcessingStatuses() != null && !video.getProcessingStatuses().isEmpty()) {
-            Optional<VideoProcessingStatusEntity> latestStatus = video.getProcessingStatuses().stream()
-                    .sorted((s1, s2) -> s2.getCreatedAt().compareTo(s1.getCreatedAt()))
-                    .findFirst();
-            
-            latestStatus.ifPresent(status -> dto.setProgress(status.getProgress()));
-        } else {
-            dto.setProgress(0);
+        // Mặc định progress là 0
+        dto.setProgress(0);
+        
+        // Xử lý an toàn lazy loading cho processingStatuses
+        try {
+            if (video.getProcessingStatuses() != null && !video.getProcessingStatuses().isEmpty()) {
+                Optional<VideoProcessingStatusEntity> latestStatus = video.getProcessingStatuses().stream()
+                        .sorted((s1, s2) -> s2.getCreatedAt().compareTo(s1.getCreatedAt()))
+                        .findFirst();
+                
+                latestStatus.ifPresent(status -> dto.setProgress(status.getProgress()));
+            }
+        } catch (Exception e) {
+            // Bỏ qua lỗi lazy loading và giữ nguyên progress mặc định
         }
         
         dto.setCreatedAt(video.getCreatedAt());

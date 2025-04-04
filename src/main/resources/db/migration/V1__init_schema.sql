@@ -40,19 +40,13 @@ CREATE TABLE IF NOT EXISTS verification_tokens (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
--- Tạo type cho video_type
-CREATE TYPE video_type_enum AS ENUM ('UPLOADED', 'YOUTUBE');
-
--- Tạo enum cho video_processing_status
-CREATE TYPE video_status_enum AS ENUM ('PENDING', 'PROCESSING', 'COMPLETED', 'ERROR');
-
 -- Tạo bảng videos
 CREATE TABLE IF NOT EXISTS videos (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID NOT NULL,
   title VARCHAR(255) NOT NULL,
   description TEXT,
-  video_type video_type_enum NOT NULL DEFAULT 'UPLOADED',
+  video_type VARCHAR(20) NOT NULL DEFAULT 'UPLOADED',
   
   -- Fields cho UPLOADED videos
   file_path VARCHAR(255),
@@ -66,7 +60,7 @@ CREATE TABLE IF NOT EXISTS videos (
   youtube_video_id VARCHAR(20),
   
   -- Fields chung
-  status video_status_enum NOT NULL DEFAULT 'PENDING',
+  status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
   is_downloadable BOOLEAN NOT NULL DEFAULT TRUE,
   metadata JSONB,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -91,7 +85,7 @@ CREATE INDEX idx_videos_user_id_video_type ON videos(user_id, video_type);
 CREATE TABLE IF NOT EXISTS video_processing_status (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   video_id UUID NOT NULL,
-  status video_status_enum NOT NULL,
+  status VARCHAR(20) NOT NULL,
   progress INTEGER DEFAULT 0,
   message TEXT,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,

@@ -5,10 +5,12 @@ import java.util.List;
 import java.util.UUID;
 
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.Type;
 import org.hibernate.annotations.UpdateTimestamp;
 import org.hibernate.annotations.UuidGenerator;
 
 import com.loopy.footballvideoprocessor.user.model.User;
+import com.vladmihalcea.hibernate.type.json.JsonBinaryType;
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -82,6 +84,7 @@ public class Video {
     @Column(name = "is_downloadable", nullable = false)
     private Boolean isDownloadable = true;
 
+    @Type(JsonBinaryType.class)
     @Column(name = "metadata", columnDefinition = "jsonb")
     private String metadata;
 
