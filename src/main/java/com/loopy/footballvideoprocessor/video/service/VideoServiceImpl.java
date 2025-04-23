@@ -6,12 +6,12 @@ import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.loopy.footballvideoprocessor.common.dto.ApiResponse;
 import com.loopy.footballvideoprocessor.common.dto.PagedResponse;
 import com.loopy.footballvideoprocessor.common.exception.ResourceNotFoundException;
 import com.loopy.footballvideoprocessor.messaging.dto.VideoProcessingMessage;
@@ -83,35 +83,38 @@ public class VideoServiceImpl implements VideoService {
     public VideoDto uploadVideo(VideoUploadRequest videoUploadRequest) {
         log.debug("Tải lên video mới: {}", videoUploadRequest.getTitle());
 
-        try {
-            // Lấy người dùng hiện tại
-            User currentUser = getCurrentUser();
+        // try {
+        // Lấy người dùng hiện tại
+        User currentUser = getCurrentUser();
 
-            // Tải video lên Cloudflare R2
-            String videoKey = r2StorageService.uploadVideo(videoUploadRequest.getFile(), currentUser.getId());
+        // Tải video lên Cloudflare R2
+        // Can throw StorageException
+        String videoKey = r2StorageService.uploadVideo(videoUploadRequest.getFile(), currentUser.getId());
 
-            // Tạo đối tượng Video mới
-            Video video = new Video();
-            video.setUser(currentUser);
-            video.setTitle(videoUploadRequest.getTitle());
-            video.setDescription(videoUploadRequest.getDescription());
-            video.setVideoType(VideoType.UPLOADED);
-            video.setFilePath(videoKey);
-            video.setFileSize(videoUploadRequest.getFile().getSize());
-            video.setIsDownloadable(videoUploadRequest.getIsDownloadable());
-            video.setStatus(VideoStatus.PENDING);
+        // Tạo đối tượng Video mới
+        Video video = new Video();
+        video.setUser(currentUser);
+        video.setTitle(videoUploadRequest.getTitle());
+        video.setDescription(videoUploadRequest.getDescription());
+        video.setVideoType(VideoType.UPLOADED);
+        video.setFilePath(videoKey);
+        video.setFileSize(videoUploadRequest.getFile().getSize());
+        video.setIsDownloadable(videoUploadRequest.getIsDownloadable());
+        video.setStatus(VideoStatus.PENDING);
 
-            // Lưu thông tin video vào cơ sở dữ liệu
-            Video savedVideo = videoRepository.save(video);
+        // Lưu thông tin video vào cơ sở dữ liệu
+        // Can throw DataAccessException
+        Video savedVideo = videoRepository.save(video);
 
-            // Gửi thông báo xử lý video đến RabbitMQ
-            sendVideoProcessingMessage(savedVideo, videoKey);
+        // Gửi thông báo xử lý video đến RabbitMQ
+        // Can throw MessagingException
+        sendVideoProcessingMessage(savedVideo, videoKey);
 
-            return videoMapper.toDto(savedVideo);
-        } catch (Exception e) {
-            log.error("Lỗi khi tải lên video: {}", e.getMessage(), e);
-            throw new RuntimeException("Không thể tải lên video: " + e.getMessage());
-        }
+        return videoMapper.toDto(savedVideo);
+        // } catch (Exception e) {
+        // log.error("Lỗi khi tải lên video: {}", e.getMessage(), e);
+        // throw new RuntimeException("Không thể tải lên video: " + e.getMessage());
+        // }
     }
 
     @Override
@@ -157,39 +160,45 @@ public class VideoServiceImpl implements VideoService {
 
     @Override
     @Transactional
-    public ApiResponse<Void> deleteVideo(UUID id) {
+    public void deleteVideo(UUID id) {
         log.debug("Xóa video với id: {}", id);
 
-        try {
-            Video video = getVideoOrThrow(id);
-            checkVideoOwnership(video);
+        // try {
+        Video video = getVideoOrThrow(id);
+        checkVideoOwnership(video);
 
-            // Nếu là video tải lên, cần xóa file từ R2
-            if (video.getVideoType() == VideoType.UPLOADED) {
-                // Xóa video gốc
-                if (video.getFilePath() != null) {
-                    r2StorageService.deleteFile(video.getFilePath());
-                }
-
-                // Xóa video đã xử lý
-                if (video.getProcessedPath() != null) {
-                    r2StorageService.deleteFile(video.getProcessedPath());
-                }
-
-                // Xóa thumbnail
-                if (video.getThumbnailPath() != null) {
-                    r2StorageService.deleteFile(video.getThumbnailPath());
-                }
+        // Nếu là video tải lên, cần xóa file từ R2
+        if (video.getVideoType() == VideoType.UPLOADED) {
+            // Xóa video gốc
+            // Can throw StorageException
+            if (video.getFilePath() != null) {
+                r2StorageService.deleteFile(video.getFilePath());
             }
 
-            // Xóa thông tin video từ cơ sở dữ liệu
-            videoRepository.delete(video);
+            // Xóa video đã xử lý
+            // Can throw StorageException
+            if (video.getProcessedPath() != null) {
+                r2StorageService.deleteFile(video.getProcessedPath());
+            }
 
-            return ApiResponse.success("Video đã được xóa thành công", null);
-        } catch (Exception e) {
-            log.error("Lỗi khi xóa video: {}", e.getMessage(), e);
-            return ApiResponse.error("Không thể xóa video: " + e.getMessage());
+            // Xóa thumbnail
+            // Can throw StorageException
+            if (video.getThumbnailPath() != null) {
+                r2StorageService.deleteFile(video.getThumbnailPath());
+            }
         }
+
+        // Xóa thông tin video từ cơ sở dữ liệu
+        // Can throw DataAccessException
+        videoRepository.delete(video);
+
+        // return ApiResponse.success("Video đã được xóa thành công", null); // Remove
+        // return
+        // } catch (Exception e) {
+        // log.error("Lỗi khi xóa video: {}", e.getMessage(), e);
+        // return ApiResponse.error("Không thể xóa video: " + e.getMessage()); // Remove
+        // return
+        // }
     }
 
     /**
@@ -209,12 +218,14 @@ public class VideoServiceImpl implements VideoService {
      * Kiểm tra người dùng hiện tại có sở hữu video không
      * 
      * @param video Video cần kiểm tra
+     * @throws AccessDeniedException nếu không có quyền
      */
     private void checkVideoOwnership(Video video) {
         User currentUser = getCurrentUser();
 
         if (!video.getUser().getId().equals(currentUser.getId())) {
-            throw new ResourceNotFoundException("Video", "id", video.getId().toString());
+            // throw new ResourceNotFoundException("Video", "id", video.getId().toString());
+            throw new AccessDeniedException("Bạn không có quyền truy cập video này"); // Use AccessDeniedException
         }
     }
 

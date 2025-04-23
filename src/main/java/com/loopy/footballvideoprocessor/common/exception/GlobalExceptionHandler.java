@@ -74,6 +74,22 @@ public class GlobalExceptionHandler {
                 HttpStatus.PAYLOAD_TOO_LARGE);
     }
 
+    @ExceptionHandler(StorageException.class)
+    public ResponseEntity<ApiResponse<Object>> handleStorageException(StorageException ex) {
+        log.error("Storage exception: {}", ex.getMessage(), ex.getCause());
+        return new ResponseEntity<>(
+                ApiResponse.error("Lỗi xảy ra khi thao tác với bộ lưu trữ. Vui lòng thử lại."),
+                HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    @ExceptionHandler(MessagingException.class)
+    public ResponseEntity<ApiResponse<Object>> handleMessagingException(MessagingException ex) {
+        log.error("Messaging exception: {}", ex.getMessage(), ex.getCause());
+        return new ResponseEntity<>(
+                ApiResponse.error("Lỗi xảy ra khi gửi tin nhắn xử lý. Vui lòng thử lại."),
+                HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Object>> handleGlobalException(Exception ex) {
         log.error("Unhandled exception: ", ex);

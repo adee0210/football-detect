@@ -19,7 +19,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.loopy.footballvideoprocessor.common.dto.ApiResponse;
 import com.loopy.footballvideoprocessor.common.dto.PagedResponse;
-import com.loopy.footballvideoprocessor.common.exception.ResourceNotFoundException;
 import com.loopy.footballvideoprocessor.video.dto.VideoDto;
 import com.loopy.footballvideoprocessor.video.dto.VideoUploadRequest;
 import com.loopy.footballvideoprocessor.video.dto.YoutubeVideoRequest;
@@ -121,7 +120,8 @@ public class VideoController {
     @PreAuthorize("hasRole('USER')")
     public ResponseEntity<ApiResponse<Void>> deleteVideo(@PathVariable UUID id) {
         // Để GlobalExceptionHandler xử lý các ngoại lệ
-        return ResponseEntity.ok(videoService.deleteVideo(id));
+        videoService.deleteVideo(id);
+        return ResponseEntity.ok(ApiResponse.success("Video đã được xóa thành công", null));
     }
 
     @Operation(summary = "Tạo URL tạm thời để truy cập video")
@@ -131,32 +131,20 @@ public class VideoController {
             @PathVariable UUID id,
             @RequestParam(defaultValue = "15") int expirationInMinutes) {
 
-        try {
-            // Lấy thông tin video từ cơ sở dữ liệu để có được key
-            VideoDto video = videoService.getVideo(id);
+        // Lấy thông tin video từ cơ sở dữ liệu để có được key
+        VideoDto video = videoService.getVideo(id);
 
-            // Tạo presigned URL dựa trên đường dẫn của video
-            String videoKey = video.getFilePath();
-            if (videoKey == null || videoKey.isEmpty()) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                        .body(ApiResponse.error("Video không có đường dẫn hợp lệ"));
-            }
-
-            // Tạo presigned URL
-            String presignedUrl = r2StorageService.generatePresignedUrl(videoKey, expirationInMinutes);
-
-            return ResponseEntity.ok(ApiResponse.success("URL tạm thời đã được tạo thành công", presignedUrl));
-        } catch (ResourceNotFoundException e) {
-            // Xử lý ngoại lệ ResourceNotFoundException
-            log.error("Lỗi khi tạo URL tạm thời: Video không tồn tại: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(ApiResponse.error(e.getMessage()));
-        } catch (Exception e) {
-            // Xử lý các ngoại lệ khác
-            log.error("Lỗi khi tạo URL tạm thời: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(ApiResponse.error("Không thể tạo URL tạm thời: " + e.getMessage()));
+        // Tạo presigned URL dựa trên đường dẫn của video
+        String videoKey = video.getFilePath();
+        if (videoKey == null || videoKey.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ApiResponse.error("Video không có đường dẫn hợp lệ"));
         }
+
+        // Tạo presigned URL
+        String presignedUrl = r2StorageService.generatePresignedUrl(videoKey, expirationInMinutes);
+
+        return ResponseEntity.ok(ApiResponse.success("URL tạm thời đã được tạo thành công", presignedUrl));
     }
 
     @Operation(summary = "Tạo URL tạm thời để truy cập video đã xử lý")
@@ -166,47 +154,35 @@ public class VideoController {
             @PathVariable UUID id,
             @RequestParam(defaultValue = "15") int expirationInMinutes) {
 
-        try {
-            // Lấy thông tin video từ cơ sở dữ liệu
-            VideoDto video = videoService.getVideo(id);
+        // Lấy thông tin video từ cơ sở dữ liệu
+        VideoDto video = videoService.getVideo(id);
 
-            // Kiểm tra xem video có phải loại YOUTUBE không
-            if (video.getVideoType() == VideoType.YOUTUBE) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                        .body(ApiResponse
-                                .error("Không thể tạo URL cho video YouTube. Hãy sử dụng liên kết YouTube trực tiếp."));
-            }
-
-            // Kiểm tra trạng thái của video
-            if (video.getStatus() != VideoStatus.COMPLETED) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                        .body(ApiResponse
-                                .error("Video chưa được xử lý hoàn tất. Trạng thái hiện tại: " + video.getStatus()));
-            }
-
-            // Lấy đường dẫn của video đã xử lý
-            String processedPath = video.getProcessedPath();
-            if (processedPath == null || processedPath.isEmpty()) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                        .body(ApiResponse.error("Video chưa có phiên bản đã xử lý"));
-            }
-
-            // Tạo presigned URL cho video đã xử lý
-            String presignedUrl = r2StorageService.generatePresignedUrl(processedPath, expirationInMinutes);
-
-            return ResponseEntity
-                    .ok(ApiResponse.success("URL tạm thời cho video đã xử lý đã được tạo thành công", presignedUrl));
-        } catch (ResourceNotFoundException e) {
-            // Xử lý ngoại lệ ResourceNotFoundException
-            log.error("Lỗi khi tạo URL tạm thời: Video không tồn tại: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(ApiResponse.error(e.getMessage()));
-        } catch (Exception e) {
-            // Xử lý các ngoại lệ khác
-            log.error("Lỗi khi tạo URL tạm thời cho video đã xử lý: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(ApiResponse.error("Không thể tạo URL tạm thời cho video đã xử lý: " + e.getMessage()));
+        // Kiểm tra xem video có phải loại YOUTUBE không
+        if (video.getVideoType() == VideoType.YOUTUBE) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ApiResponse
+                            .error("Không thể tạo URL cho video YouTube. Hãy sử dụng liên kết YouTube trực tiếp."));
         }
+
+        // Kiểm tra trạng thái của video
+        if (video.getStatus() != VideoStatus.COMPLETED) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ApiResponse
+                            .error("Video chưa được xử lý hoàn tất. Trạng thái hiện tại: " + video.getStatus()));
+        }
+
+        // Lấy đường dẫn của video đã xử lý
+        String processedPath = video.getProcessedPath();
+        if (processedPath == null || processedPath.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ApiResponse.error("Video chưa có phiên bản đã xử lý"));
+        }
+
+        // Tạo presigned URL cho video đã xử lý
+        String presignedUrl = r2StorageService.generatePresignedUrl(processedPath, expirationInMinutes);
+
+        return ResponseEntity
+                .ok(ApiResponse.success("URL tạm thời cho video đã xử lý đã được tạo thành công", presignedUrl));
     }
 
     @Operation(summary = "Tạo URL tạm thời để truy cập thumbnail của video")
@@ -216,39 +192,27 @@ public class VideoController {
             @PathVariable UUID id,
             @RequestParam(defaultValue = "15") int expirationInMinutes) {
 
-        try {
-            // Lấy thông tin video từ cơ sở dữ liệu
-            VideoDto video = videoService.getVideo(id);
+        // Lấy thông tin video từ cơ sở dữ liệu
+        VideoDto video = videoService.getVideo(id);
 
-            // Kiểm tra xem video có phải loại YOUTUBE không
-            if (video.getVideoType() == VideoType.YOUTUBE) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                        .body(ApiResponse.error(
-                                "Không thể tạo URL thumbnail cho video YouTube. Hãy sử dụng thumbnail YouTube trực tiếp."));
-            }
-
-            // Lấy đường dẫn của thumbnail
-            String thumbnailPath = video.getThumbnailPath();
-            if (thumbnailPath == null || thumbnailPath.isEmpty()) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                        .body(ApiResponse.error("Video chưa có thumbnail"));
-            }
-
-            // Tạo presigned URL cho thumbnail
-            String presignedUrl = r2StorageService.generatePresignedUrl(thumbnailPath, expirationInMinutes);
-
-            return ResponseEntity
-                    .ok(ApiResponse.success("URL tạm thời cho thumbnail đã được tạo thành công", presignedUrl));
-        } catch (ResourceNotFoundException e) {
-            // Xử lý ngoại lệ ResourceNotFoundException
-            log.error("Lỗi khi tạo URL tạm thời cho thumbnail: Video không tồn tại: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(ApiResponse.error(e.getMessage()));
-        } catch (Exception e) {
-            // Xử lý các ngoại lệ khác
-            log.error("Lỗi khi tạo URL tạm thời cho thumbnail: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(ApiResponse.error("Không thể tạo URL tạm thời cho thumbnail: " + e.getMessage()));
+        // Kiểm tra xem video có phải loại YOUTUBE không
+        if (video.getVideoType() == VideoType.YOUTUBE) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ApiResponse.error(
+                            "Không thể tạo URL thumbnail cho video YouTube. Hãy sử dụng thumbnail YouTube trực tiếp."));
         }
+
+        // Lấy đường dẫn của thumbnail
+        String thumbnailPath = video.getThumbnailPath();
+        if (thumbnailPath == null || thumbnailPath.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ApiResponse.error("Video chưa có thumbnail"));
+        }
+
+        // Tạo presigned URL cho thumbnail
+        String presignedUrl = r2StorageService.generatePresignedUrl(thumbnailPath, expirationInMinutes);
+
+        return ResponseEntity
+                .ok(ApiResponse.success("URL tạm thời cho thumbnail đã được tạo thành công", presignedUrl));
     }
 }

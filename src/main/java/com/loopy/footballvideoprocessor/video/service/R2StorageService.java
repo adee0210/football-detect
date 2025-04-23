@@ -7,9 +7,11 @@ import java.time.Duration;
 import java.util.Map;
 import java.util.UUID;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+
+import com.loopy.footballvideoprocessor.common.exception.StorageException;
+import com.loopy.footballvideoprocessor.config.CloudflareProperties;
 
 import lombok.extern.slf4j.Slf4j;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
@@ -34,31 +36,38 @@ public class R2StorageService {
     private final S3Client s3Client;
     private final S3Presigner s3Presigner;
     private final String bucketName;
+    private final CloudflareProperties cloudflareProperties;
 
-    public R2StorageService(
-            @Value("${cloudflare.r2.access-key}") String accessKey,
-            @Value("${cloudflare.r2.secret-key}") String secretKey,
-            @Value("${cloudflare.r2.endpoint}") String endpoint,
-            @Value("${cloudflare.r2.region}") String region,
-            @Value("${cloudflare.r2.bucket-name}") String bucketName) {
+    public R2StorageService(CloudflareProperties cloudflareProperties) {
+        this.cloudflareProperties = cloudflareProperties;
 
-        AwsBasicCredentials credentials = AwsBasicCredentials.create(accessKey, secretKey);
+        CloudflareProperties.R2 r2Props = cloudflareProperties.getR2();
+        if (r2Props == null) {
+            throw new IllegalStateException("Cloudflare R2 properties (cloudflare.r2) are not configured.");
+        }
+
+        AwsBasicCredentials credentials = AwsBasicCredentials.create(
+                r2Props.getAccessKey(),
+                r2Props.getSecretKey());
         StaticCredentialsProvider credentialsProvider = StaticCredentialsProvider.create(credentials);
 
         this.s3Client = S3Client.builder()
-                .region(Region.of(region))
-                .endpointOverride(URI.create(endpoint))
+                .region(Region.of(r2Props.getRegion()))
+                .endpointOverride(URI.create(r2Props.getEndpoint()))
                 .credentialsProvider(credentialsProvider)
                 .build();
 
         this.s3Presigner = S3Presigner.builder()
-                .region(Region.of(region))
-                .endpointOverride(URI.create(endpoint))
+                .region(Region.of(r2Props.getRegion()))
+                .endpointOverride(URI.create(r2Props.getEndpoint()))
                 .credentialsProvider(credentialsProvider)
                 .build();
 
-        this.bucketName = bucketName;
-        log.info("R2StorageService initialized with bucket: {}", bucketName);
+        this.bucketName = r2Props.getBucketName();
+        if (this.bucketName == null || this.bucketName.trim().isEmpty()) {
+            throw new IllegalStateException("Cloudflare R2 bucket name (cloudflare.r2.bucket-name) is not configured.");
+        }
+        log.info("R2StorageService initialized with bucket: {}", this.bucketName);
     }
 
     /**
@@ -74,7 +83,7 @@ public class R2StorageService {
             String key = "videos/" + userId + "/" + fileName;
 
             PutObjectRequest request = PutObjectRequest.builder()
-                    .bucket(bucketName)
+                    .bucket(this.bucketName)
                     .key(key)
                     .contentType(file.getContentType())
                     .metadata(Map.of(
@@ -87,7 +96,7 @@ public class R2StorageService {
             return key;
         } catch (IOException | S3Exception e) {
             log.error("Failed to upload file to R2", e);
-            throw new RuntimeException("Failed to upload file to R2", e);
+            throw new StorageException("Không thể tải file lên bộ lưu trữ", e);
         }
     }
 
@@ -107,7 +116,7 @@ public class R2StorageService {
             String key = "processed/" + userId + "/" + fileName;
 
             PutObjectRequest request = PutObjectRequest.builder()
-                    .bucket(bucketName)
+                    .bucket(this.bucketName)
                     .key(key)
                     .contentType(contentType)
                     .metadata(Map.of(
@@ -121,7 +130,7 @@ public class R2StorageService {
             return key;
         } catch (S3Exception e) {
             log.error("Failed to upload processed file to R2", e);
-            throw new RuntimeException("Failed to upload processed file to R2", e);
+            throw new StorageException("Không thể tải file đã xử lý lên bộ lưu trữ", e);
         }
     }
 
@@ -141,7 +150,7 @@ public class R2StorageService {
             String key = "thumbnails/" + userId + "/" + fileName;
 
             PutObjectRequest request = PutObjectRequest.builder()
-                    .bucket(bucketName)
+                    .bucket(this.bucketName)
                     .key(key)
                     .contentType(contentType)
                     .metadata(Map.of(
@@ -154,7 +163,7 @@ public class R2StorageService {
             return key;
         } catch (S3Exception e) {
             log.error("Failed to upload thumbnail to R2", e);
-            throw new RuntimeException("Failed to upload thumbnail to R2", e);
+            throw new StorageException("Không thể tải thumbnail lên bộ lưu trữ", e);
         }
     }
 
@@ -167,14 +176,14 @@ public class R2StorageService {
     public ResponseInputStream<GetObjectResponse> downloadFile(String key) {
         try {
             GetObjectRequest request = GetObjectRequest.builder()
-                    .bucket(bucketName)
+                    .bucket(this.bucketName)
                     .key(key)
                     .build();
 
             return s3Client.getObject(request);
         } catch (S3Exception e) {
             log.error("Failed to download file from R2: {}", key, e);
-            throw new RuntimeException("Failed to download file from R2", e);
+            throw new StorageException("Không thể tải file từ bộ lưu trữ: " + key, e);
         }
     }
 
@@ -186,7 +195,7 @@ public class R2StorageService {
     public void deleteFile(String key) {
         try {
             DeleteObjectRequest request = DeleteObjectRequest.builder()
-                    .bucket(bucketName)
+                    .bucket(this.bucketName)
                     .key(key)
                     .build();
 
@@ -194,7 +203,7 @@ public class R2StorageService {
             log.info("Deleted file from R2: {}", key);
         } catch (S3Exception e) {
             log.error("Failed to delete file from R2: {}", key, e);
-            throw new RuntimeException("Failed to delete file from R2", e);
+            throw new StorageException("Không thể xóa file khỏi bộ lưu trữ: " + key, e);
         }
     }
 
@@ -208,7 +217,7 @@ public class R2StorageService {
     public String generatePresignedUrl(String key, int expirationInMinutes) {
         try {
             GetObjectRequest getObjectRequest = GetObjectRequest.builder()
-                    .bucket(bucketName)
+                    .bucket(this.bucketName)
                     .key(key)
                     .build();
 
@@ -223,7 +232,7 @@ public class R2StorageService {
             return presignedRequest.url().toString();
         } catch (S3Exception e) {
             log.error("Failed to generate presigned URL for file: {}", key, e);
-            throw new RuntimeException("Failed to generate presigned URL", e);
+            throw new StorageException("Không thể tạo URL tạm thời cho file: " + key, e);
         }
     }
 
