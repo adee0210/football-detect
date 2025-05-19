@@ -28,6 +28,8 @@ import com.loopy.footballvideoprocessor.video.service.R2StorageService;
 import com.loopy.footballvideoprocessor.video.service.VideoService;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.Parameters;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -47,18 +49,22 @@ public class VideoController {
     @GetMapping
     @PreAuthorize("hasRole('USER')")
     public ResponseEntity<PagedResponse<VideoDto>> getAllVideos(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "10") int size) {
         // Để GlobalExceptionHandler xử lý các ngoại lệ
         return ResponseEntity.ok(videoService.getAllVideos(page, size));
     }
 
     @Operation(summary = "Lấy danh sách video được tải lên của người dùng")
+    @Parameters({
+            @Parameter(name = "page", description = "Số trang, bắt đầu từ 0", example = "0"),
+            @Parameter(name = "size", description = "Kích thước trang", example = "10")
+    })
     @GetMapping("/uploaded")
     @PreAuthorize("hasRole('USER')")
     public ResponseEntity<PagedResponse<VideoDto>> getUploadedVideos(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "10") int size) {
         // Để GlobalExceptionHandler xử lý các ngoại lệ
         return ResponseEntity.ok(videoService.getVideosByType(VideoType.UPLOADED, page, size));
     }
@@ -67,8 +73,8 @@ public class VideoController {
     @GetMapping("/youtube")
     @PreAuthorize("hasRole('USER')")
     public ResponseEntity<PagedResponse<VideoDto>> getYoutubeVideos(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "10") int size) {
         // Để GlobalExceptionHandler xử lý các ngoại lệ
         return ResponseEntity.ok(videoService.getVideosByType(VideoType.YOUTUBE, page, size));
     }
@@ -129,7 +135,7 @@ public class VideoController {
     @PreAuthorize("hasRole('USER')")
     public ResponseEntity<ApiResponse<String>> generatePresignedUrl(
             @PathVariable UUID id,
-            @RequestParam(defaultValue = "15") int expirationInMinutes) {
+            @RequestParam(name = "expirationInMinutes", defaultValue = "15") int expirationInMinutes) {
 
         // Lấy thông tin video từ cơ sở dữ liệu để có được key
         VideoDto video = videoService.getVideo(id);
@@ -152,7 +158,7 @@ public class VideoController {
     @PreAuthorize("hasRole('USER')")
     public ResponseEntity<ApiResponse<String>> generateProcessedPresignedUrl(
             @PathVariable UUID id,
-            @RequestParam(defaultValue = "15") int expirationInMinutes) {
+            @RequestParam(name = "expirationInMinutes", defaultValue = "15") int expirationInMinutes) {
 
         // Lấy thông tin video từ cơ sở dữ liệu
         VideoDto video = videoService.getVideo(id);
@@ -190,7 +196,7 @@ public class VideoController {
     @PreAuthorize("hasRole('USER')")
     public ResponseEntity<ApiResponse<String>> generateThumbnailPresignedUrl(
             @PathVariable UUID id,
-            @RequestParam(defaultValue = "15") int expirationInMinutes) {
+            @RequestParam(name = "expirationInMinutes", defaultValue = "15") int expirationInMinutes) {
 
         // Lấy thông tin video từ cơ sở dữ liệu
         VideoDto video = videoService.getVideo(id);

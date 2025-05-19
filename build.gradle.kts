@@ -14,6 +14,11 @@ java {
 	}
 }
 
+// Thêm cấu hình để giữ tên tham số trong bytecode
+tasks.withType<JavaCompile> {
+	options.compilerArgs.add("-parameters")
+}
+
 repositories {
 	mavenCentral()
 }
