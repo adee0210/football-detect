@@ -26,7 +26,13 @@ public class VideoProcessingProducer {
 
     public void sendVideoProcessingMessage(VideoProcessingMessage message) {
         try {
-            log.info("Gửi video processing message với videoId: {}", message.getVideoId());
+            if (message.getYoutubeUrl() != null) {
+                log.info("Gửi YouTube video processing message với videoId: {}, youtubeUrl: {}",
+                        message.getVideoId(), message.getYoutubeUrl());
+            } else {
+                log.info("Gửi video processing message với videoId: {}", message.getVideoId());
+            }
+
             rabbitTemplate.convertAndSend(videoProcessingExchange, videoProcessingRoutingKey, message);
             log.info("Message đã được gửi thành công");
         } catch (AmqpException e) {

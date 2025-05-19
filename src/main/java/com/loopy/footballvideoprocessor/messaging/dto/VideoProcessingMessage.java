@@ -16,25 +16,30 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class VideoProcessingMessage implements Serializable {
-    
+
     private static final long serialVersionUID = 1L;
-    
+
     private UUID videoId;
     private UUID userId;
     private String videoPath;
     private String cloudStorageKey;
     private String outputPath;
+
+    // Thêm trường cho video YouTube
+    private String youtubeUrl;
+    private String youtubeVideoId;
+
     private VideoStatus status;
     private Integer progress;
     private String message;
     private LocalDateTime timestamp;
-    
+
     @Builder.Default
     private boolean highPriority = false;
-    
+
     @Builder.Default
     private int maxRetries = 3;
-    
+
     @Builder.Default
     private int retryCount = 0;
 }

@@ -1,5 +1,6 @@
 package com.loopy.footballvideoprocessor.video.controller;
 
+import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
@@ -130,67 +131,6 @@ public class VideoController {
         return ResponseEntity.ok(ApiResponse.success("Video đã được xóa thành công", null));
     }
 
-    @Operation(summary = "Tạo URL tạm thời để truy cập video")
-    @GetMapping("/{id}/presigned-url")
-    @PreAuthorize("hasRole('USER')")
-    public ResponseEntity<ApiResponse<String>> generatePresignedUrl(
-            @PathVariable UUID id,
-            @RequestParam(name = "expirationInMinutes", defaultValue = "15") int expirationInMinutes) {
-
-        // Lấy thông tin video từ cơ sở dữ liệu để có được key
-        VideoDto video = videoService.getVideo(id);
-
-        // Tạo presigned URL dựa trên đường dẫn của video
-        String videoKey = video.getFilePath();
-        if (videoKey == null || videoKey.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(ApiResponse.error("Video không có đường dẫn hợp lệ"));
-        }
-
-        // Tạo presigned URL
-        String presignedUrl = r2StorageService.generatePresignedUrl(videoKey, expirationInMinutes);
-
-        return ResponseEntity.ok(ApiResponse.success("URL tạm thời đã được tạo thành công", presignedUrl));
-    }
-
-    @Operation(summary = "Tạo URL tạm thời để truy cập video đã xử lý")
-    @GetMapping("/{id}/processed-url")
-    @PreAuthorize("hasRole('USER')")
-    public ResponseEntity<ApiResponse<String>> generateProcessedPresignedUrl(
-            @PathVariable UUID id,
-            @RequestParam(name = "expirationInMinutes", defaultValue = "15") int expirationInMinutes) {
-
-        // Lấy thông tin video từ cơ sở dữ liệu
-        VideoDto video = videoService.getVideo(id);
-
-        // Kiểm tra xem video có phải loại YOUTUBE không
-        if (video.getVideoType() == VideoType.YOUTUBE) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(ApiResponse
-                            .error("Không thể tạo URL cho video YouTube. Hãy sử dụng liên kết YouTube trực tiếp."));
-        }
-
-        // Kiểm tra trạng thái của video
-        if (video.getStatus() != VideoStatus.COMPLETED) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(ApiResponse
-                            .error("Video chưa được xử lý hoàn tất. Trạng thái hiện tại: " + video.getStatus()));
-        }
-
-        // Lấy đường dẫn của video đã xử lý
-        String processedPath = video.getProcessedPath();
-        if (processedPath == null || processedPath.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(ApiResponse.error("Video chưa có phiên bản đã xử lý"));
-        }
-
-        // Tạo presigned URL cho video đã xử lý
-        String presignedUrl = r2StorageService.generatePresignedUrl(processedPath, expirationInMinutes);
-
-        return ResponseEntity
-                .ok(ApiResponse.success("URL tạm thời cho video đã xử lý đã được tạo thành công", presignedUrl));
-    }
-
     @Operation(summary = "Tạo URL tạm thời để truy cập thumbnail của video")
     @GetMapping("/{id}/thumbnail-url")
     @PreAuthorize("hasRole('USER')")
@@ -220,5 +160,34 @@ public class VideoController {
 
         return ResponseEntity
                 .ok(ApiResponse.success("URL tạm thời cho thumbnail đã được tạo thành công", presignedUrl));
+    }
+
+    @Operation(summary = "Lấy thông tin trạng thái xử lý video")
+    @GetMapping("/{id}/processing-status")
+    @PreAuthorize("hasRole('USER')")
+    public ResponseEntity<ApiResponse<Object>> getVideoProcessingStatus(@PathVariable UUID id) {
+        log.debug("Lấy thông tin trạng thái xử lý video: {}", id);
+
+        // Lấy thông tin video
+        VideoDto video = videoService.getVideo(id);
+
+        if (video.getStatus() == VideoStatus.COMPLETED) {
+            return ResponseEntity.ok(ApiResponse.success("Video đã được xử lý hoàn tất",
+                    Map.of(
+                            "status", video.getStatus(),
+                            "progress", 100,
+                            "message", "Hoàn thành")));
+        } else if (video.getStatus() == VideoStatus.ERROR) {
+            return ResponseEntity.ok(ApiResponse.success("Video xử lý bị lỗi",
+                    Map.of(
+                            "status", video.getStatus(),
+                            "progress", video.getProgress() != null ? video.getProgress() : 0,
+                            "message", "Lỗi khi xử lý video")));
+        }
+
+        // Lấy thông tin trạng thái xử lý gần nhất
+        Map<String, Object> processingStatus = videoService.getLatestProcessingStatus(id);
+
+        return ResponseEntity.ok(ApiResponse.success("Thông tin trạng thái xử lý video", processingStatus));
     }
 }

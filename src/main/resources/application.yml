@@ -30,12 +30,28 @@ spring:
     password: guest
   data:
     redis:
-      host: localhost
-      port: 6379
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 6000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 2
+          max-wait: -1ms
   servlet:
     multipart:
       max-file-size: 500MB
       max-request-size: 500MB
+  # Cấu hình Redis cache
+  cache:
+    type: redis
+    redis:
+      time-to-live: 3600000 # 1 giờ (milliseconds)
+      cache-null-values: false
+    cache-names:
+      - videoCache
+      - videoListCache
 
 server:
   port: 8080
@@ -54,6 +70,11 @@ app:
       max-size: 100MB
     processing:
       url: http://localhost:9090/api/process
+  youtube:
+    download-url: ${YOUTUBE_DOWNLOAD_URL:http://localhost:9090/api/youtube/download}
+    api-key: ${YOUTUBE_API_KEY:}
+    max-duration-minutes: 60
+    process-enabled: true
 
 # Cloudflare R2 Configuration
 cloudflare:

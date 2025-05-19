@@ -60,6 +60,9 @@ dependencies {
 	// Hibernate Types for PostgreSQL JSONB support
 	implementation("com.vladmihalcea:hibernate-types-60:2.21.1")
 	
+	// Jackson date/time support
+	implementation("com.fasterxml.jackson.datatype:jackson-datatype-jsr310")
+	
 	// Database
 	runtimeOnly("org.postgresql:postgresql")
 	implementation("org.flywaydb:flyway-core")

@@ -51,7 +51,9 @@ src/
 
 - **Quản lý người dùng**: Đăng ký, đăng nhập, xác thực email
 - **Quản lý video**: Tải lên, thêm từ YouTube, cập nhật thông tin, xóa
-- **Xử lý video**: Queue xử lý video tự động, phân tích dữ liệu
+- **Xử lý video**:
+  - Queue xử lý video đã tải lên (phân tích dữ liệu)
+  - Queue xử lý video từ YouTube (tải về và phân tích dữ liệu)
 - **Dashboard**: Thống kê tổng quan về video và dung lượng
 
 ## Cài đặt và chạy

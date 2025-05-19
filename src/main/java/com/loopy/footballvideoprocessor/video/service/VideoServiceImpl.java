@@ -1,6 +1,9 @@
 package com.loopy.footballvideoprocessor.video.service;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.data.domain.Page;
@@ -11,6 +14,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import com.loopy.footballvideoprocessor.common.dto.PagedResponse;
 import com.loopy.footballvideoprocessor.common.exception.ResourceNotFoundException;
@@ -23,8 +28,10 @@ import com.loopy.footballvideoprocessor.video.dto.VideoUploadRequest;
 import com.loopy.footballvideoprocessor.video.dto.YoutubeVideoRequest;
 import com.loopy.footballvideoprocessor.video.mapper.VideoMapper;
 import com.loopy.footballvideoprocessor.video.model.Video;
+import com.loopy.footballvideoprocessor.video.model.VideoProcessingStatusEntity;
 import com.loopy.footballvideoprocessor.video.model.VideoStatus;
 import com.loopy.footballvideoprocessor.video.model.VideoType;
+import com.loopy.footballvideoprocessor.video.repository.VideoProcessingStatusRepository;
 import com.loopy.footballvideoprocessor.video.repository.VideoRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -40,6 +47,7 @@ public class VideoServiceImpl implements VideoService {
     private final VideoMapper videoMapper;
     private final UserRepository userRepository;
     private final VideoProcessingProducer videoProcessingProducer;
+    private final VideoProcessingStatusRepository processingStatusRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -83,15 +91,9 @@ public class VideoServiceImpl implements VideoService {
     public VideoDto uploadVideo(VideoUploadRequest videoUploadRequest) {
         log.debug("Tải lên video mới: {}", videoUploadRequest.getTitle());
 
-        // try {
-        // Lấy người dùng hiện tại
         User currentUser = getCurrentUser();
-
-        // Tải video lên Cloudflare R2
-        // Can throw StorageException
         String videoKey = r2StorageService.uploadVideo(videoUploadRequest.getFile(), currentUser.getId());
 
-        // Tạo đối tượng Video mới
         Video video = new Video();
         video.setUser(currentUser);
         video.setTitle(videoUploadRequest.getTitle());
@@ -102,19 +104,17 @@ public class VideoServiceImpl implements VideoService {
         video.setIsDownloadable(videoUploadRequest.getIsDownloadable());
         video.setStatus(VideoStatus.PENDING);
 
-        // Lưu thông tin video vào cơ sở dữ liệu
-        // Can throw DataAccessException
         Video savedVideo = videoRepository.save(video);
 
-        // Gửi thông báo xử lý video đến RabbitMQ
-        // Can throw MessagingException
-        sendVideoProcessingMessage(savedVideo, videoKey);
+        // Đăng ký gửi message sau khi transaction commit
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                sendVideoProcessingMessage(savedVideo, videoKey);
+            }
+        });
 
         return videoMapper.toDto(savedVideo);
-        // } catch (Exception e) {
-        // log.error("Lỗi khi tải lên video: {}", e.getMessage(), e);
-        // throw new RuntimeException("Không thể tải lên video: " + e.getMessage());
-        // }
     }
 
     @Override
@@ -122,10 +122,8 @@ public class VideoServiceImpl implements VideoService {
     public VideoDto addYoutubeVideo(YoutubeVideoRequest youtubeVideoRequest) {
         log.debug("Thêm video YouTube: {}", youtubeVideoRequest.getYoutubeUrl());
 
-        // Lấy người dùng hiện tại
         User currentUser = getCurrentUser();
 
-        // Tạo đối tượng Video mới
         Video video = new Video();
         video.setUser(currentUser);
         video.setTitle(youtubeVideoRequest.getTitle());
@@ -133,10 +131,18 @@ public class VideoServiceImpl implements VideoService {
         video.setVideoType(VideoType.YOUTUBE);
         video.setYoutubeUrl(youtubeVideoRequest.getYoutubeUrl());
         video.setYoutubeVideoId(extractYoutubeId(youtubeVideoRequest.getYoutubeUrl()));
-        video.setStatus(VideoStatus.COMPLETED); // YouTube videos không cần xử lý
+        video.setStatus(VideoStatus.PENDING);
+        video.setIsDownloadable(youtubeVideoRequest.getIsDownloadable());
 
-        // Lưu thông tin video vào cơ sở dữ liệu
         Video savedVideo = videoRepository.save(video);
+
+        // Đăng ký gửi message sau khi transaction commit
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                sendYoutubeVideoProcessingMessage(savedVideo);
+            }
+        });
 
         return videoMapper.toDto(savedVideo);
     }
@@ -163,42 +169,71 @@ public class VideoServiceImpl implements VideoService {
     public void deleteVideo(UUID id) {
         log.debug("Xóa video với id: {}", id);
 
-        // try {
         Video video = getVideoOrThrow(id);
         checkVideoOwnership(video);
 
-        // Nếu là video tải lên, cần xóa file từ R2
-        if (video.getVideoType() == VideoType.UPLOADED) {
-            // Xóa video gốc
-            // Can throw StorageException
-            if (video.getFilePath() != null) {
-                r2StorageService.deleteFile(video.getFilePath());
-            }
-
-            // Xóa video đã xử lý
-            // Can throw StorageException
-            if (video.getProcessedPath() != null) {
-                r2StorageService.deleteFile(video.getProcessedPath());
-            }
-
-            // Xóa thumbnail
-            // Can throw StorageException
-            if (video.getThumbnailPath() != null) {
-                r2StorageService.deleteFile(video.getThumbnailPath());
-            }
+        // Delete video file from R2 if exists
+        if (video.getFilePath() != null) {
+            r2StorageService.deleteFile(video.getFilePath());
         }
 
-        // Xóa thông tin video từ cơ sở dữ liệu
-        // Can throw DataAccessException
-        videoRepository.delete(video);
+        // Delete processed video if exists
+        if (video.getProcessedPath() != null) {
+            r2StorageService.deleteFile(video.getProcessedPath());
+        }
 
-        // return ApiResponse.success("Video đã được xóa thành công", null); // Remove
-        // return
-        // } catch (Exception e) {
-        // log.error("Lỗi khi xóa video: {}", e.getMessage(), e);
-        // return ApiResponse.error("Không thể xóa video: " + e.getMessage()); // Remove
-        // return
-        // }
+        // Delete thumbnail if exists
+        if (video.getThumbnailPath() != null) {
+            r2StorageService.deleteFile(video.getThumbnailPath());
+        }
+
+        videoRepository.delete(video);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Map<String, Object> getLatestProcessingStatus(UUID id) {
+        log.debug("Lấy thông tin trạng thái xử lý gần nhất của video: {}", id);
+
+        // Lấy thông tin video
+        Video video = getVideoOrThrow(id);
+        checkVideoOwnership(video);
+
+        // Tạo map chứa thông tin cơ bản của video
+        Map<String, Object> result = new HashMap<>();
+        result.put("videoId", video.getId());
+        result.put("status", video.getStatus());
+        result.put("progress", 0); // Mặc định là 0
+        result.put("message", getStatusMessage(video.getStatus()));
+
+        // Tìm thông tin trạng thái xử lý gần nhất
+        Optional<VideoProcessingStatusEntity> latestStatus = processingStatusRepository
+                .findFirstByVideoOrderByCreatedAtDesc(video);
+
+        // Nếu có thông tin trạng thái mới nhất, cập nhật vào result
+        if (latestStatus.isPresent()) {
+            VideoProcessingStatusEntity status = latestStatus.get();
+            result.put("status", status.getStatus());
+            result.put("progress", status.getProgress() != null ? status.getProgress() : 0);
+            result.put("message",
+                    status.getMessage() != null ? status.getMessage() : getStatusMessage(status.getStatus()));
+            result.put("updatedAt", status.getUpdatedAt());
+        }
+
+        return result;
+    }
+
+    /**
+     * Trả về message tương ứng với trạng thái video
+     */
+    private String getStatusMessage(VideoStatus status) {
+        return switch (status) {
+            case PENDING -> "Đang chờ xử lý";
+            case PROCESSING -> "Đang xử lý";
+            case COMPLETED -> "Đã hoàn thành";
+            case ERROR -> "Xảy ra lỗi khi xử lý";
+            default -> "Không xác định";
+        };
     }
 
     /**
@@ -268,6 +303,26 @@ public class VideoServiceImpl implements VideoService {
                 .userId(video.getUser().getId())
                 .videoPath(video.getFilePath())
                 .cloudStorageKey(videoKey)
+                .outputPath("processed/" + video.getUser().getId() + "/" + video.getId() + ".mp4")
+                .status(VideoStatus.PENDING)
+                .progress(0)
+                .timestamp(LocalDateTime.now())
+                .build();
+
+        videoProcessingProducer.sendVideoProcessingMessage(message);
+    }
+
+    /**
+     * Gửi thông báo xử lý video YouTube đến RabbitMQ
+     * 
+     * @param video Video YouTube cần xử lý
+     */
+    private void sendYoutubeVideoProcessingMessage(Video video) {
+        VideoProcessingMessage message = VideoProcessingMessage.builder()
+                .videoId(video.getId())
+                .userId(video.getUser().getId())
+                .youtubeUrl(video.getYoutubeUrl())
+                .youtubeVideoId(video.getYoutubeVideoId())
                 .outputPath("processed/" + video.getUser().getId() + "/" + video.getId() + ".mp4")
                 .status(VideoStatus.PENDING)
                 .progress(0)

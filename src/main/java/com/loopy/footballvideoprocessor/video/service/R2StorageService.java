@@ -86,6 +86,7 @@ public class R2StorageService {
                     .bucket(this.bucketName)
                     .key(key)
                     .contentType(file.getContentType())
+                    .cacheControl("max-age=86400, private") // Cache 1 ngày, chỉ client cache
                     .metadata(Map.of(
                             "original-name", file.getOriginalFilename(),
                             "user-id", userId.toString()))
@@ -119,6 +120,7 @@ public class R2StorageService {
                     .bucket(this.bucketName)
                     .key(key)
                     .contentType(contentType)
+                    .cacheControl("max-age=86400, private") // Cache 1 ngày, chỉ client cache
                     .metadata(Map.of(
                             "original-name", fileName,
                             "user-id", userId.toString(),
