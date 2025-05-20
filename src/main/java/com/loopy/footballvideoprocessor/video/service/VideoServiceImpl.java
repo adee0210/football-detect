@@ -258,9 +258,18 @@ public class VideoServiceImpl implements VideoService {
     private void checkVideoOwnership(Video video) {
         User currentUser = getCurrentUser();
 
+        // Kiểm tra xem người dùng hiện tại có quyền ADMIN không
+        boolean isAdmin = currentUser.getRoles().stream()
+                .anyMatch(role -> "ROLE_ADMIN".equals(role.getName()));
+
+        // Nếu là admin thì cho phép truy cập tất cả video
+        if (isAdmin) {
+            return;
+        }
+
+        // Nếu không phải admin thì chỉ có thể truy cập video của chính mình
         if (!video.getUser().getId().equals(currentUser.getId())) {
-            // throw new ResourceNotFoundException("Video", "id", video.getId().toString());
-            throw new AccessDeniedException("Bạn không có quyền truy cập video này"); // Use AccessDeniedException
+            throw new AccessDeniedException("Bạn không có quyền truy cập video này");
         }
     }
 

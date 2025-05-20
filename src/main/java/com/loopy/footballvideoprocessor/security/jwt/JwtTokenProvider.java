@@ -125,9 +125,11 @@ public class JwtTokenProvider {
                 .parseSignedClaims(token)
                 .getPayload();
 
-        Collection<? extends GrantedAuthority> authorities = Arrays.stream(claims.get("roles", String.class).split(","))
+        String rolesStr = claims.get("roles", String.class);
+
+        Collection<? extends GrantedAuthority> authorities = Arrays.stream(rolesStr.split(","))
                 .filter(auth -> !auth.trim().isEmpty())
-                .map(SimpleGrantedAuthority::new)
+                .map(role -> new SimpleGrantedAuthority(role.trim()))
                 .collect(Collectors.toList());
 
         UserDetails principal = new User(claims.getSubject(), "", authorities);

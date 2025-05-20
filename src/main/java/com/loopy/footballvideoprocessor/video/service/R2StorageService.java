@@ -252,4 +252,37 @@ public class R2StorageService {
         }
         return UUID.randomUUID().toString() + extension;
     }
+
+    /**
+     * Tạo URL presigned để tải xuống file với Content-Disposition: attachment
+     * 
+     * @param key                 Khóa file trong R2
+     * @param expirationInMinutes Thời gian hết hạn (phút)
+     * @param filename            Tên file khi tải xuống
+     * @return URL presigned có header buộc tải xuống
+     */
+    public String generateDownloadUrl(String key, int expirationInMinutes, String filename) {
+        try {
+            // Tạo request với header Content-Disposition để buộc browser tải xuống
+            GetObjectRequest getObjectRequest = GetObjectRequest.builder()
+                    .bucket(this.bucketName)
+                    .key(key)
+                    .responseContentDisposition("attachment; filename=\"" + filename + "\"")
+                    .build();
+
+            GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
+                    .signatureDuration(Duration.ofMinutes(expirationInMinutes))
+                    .getObjectRequest(getObjectRequest)
+                    .build();
+
+            PresignedGetObjectRequest presignedRequest = s3Presigner.presignGetObject(presignRequest);
+
+            log.info("Generated download URL for file: {}, filename: {}, expires in {} minutes",
+                    key, filename, expirationInMinutes);
+            return presignedRequest.url().toString();
+        } catch (S3Exception e) {
+            log.error("Failed to generate download URL for file: {}", key, e);
+            throw new StorageException("Không thể tạo URL tải xuống cho file: " + key, e);
+        }
+    }
 }

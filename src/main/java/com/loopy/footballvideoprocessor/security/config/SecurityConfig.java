@@ -52,19 +52,24 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        log.info("Cấu hình SecurityFilterChain");
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/auth/**").permitAll()
-                        .requestMatchers("/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
-                        .requestMatchers("/actuator/**").permitAll()
-                        .requestMatchers("/api/videos/test/**").permitAll()
-                        .anyRequest().authenticated());
+                .authorizeHttpRequests(auth -> {
+                    auth
+                            .requestMatchers("/auth/**").permitAll()
+                            .requestMatchers("/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
+                            .requestMatchers("/actuator/**").permitAll()
+                            .requestMatchers("/api/videos/test/**").permitAll()
+                            .anyRequest().authenticated();
+                    log.info("Cấu hình requestMatchers đã được thiết lập");
+                });
 
         // Thêm filter JWT trước filter xác thực username/password
         http.addFilterBefore(jwtAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class);
+        log.info("Đã thêm JwtAuthenticationFilter vào chuỗi filter");
 
         return http.build();
     }
