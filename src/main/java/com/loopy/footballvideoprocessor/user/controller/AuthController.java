@@ -69,4 +69,5 @@ public class AuthController {
         boolean isValid = authService.validateToken(token);
         return ResponseEntity.ok(ApiResponse.success("Kết quả kiểm tra token", isValid));
     }
+
 }
